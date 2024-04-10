@@ -8,9 +8,9 @@ struct Object {
         Sphere, Box, Torus, InfiniteSpheres
     } type;
 
-    float x, y, z;
-    float sx, sy, sz;
-    float r, g, b;
+    glm::vec3 pos;
+    glm::vec3 scale;
+    glm::vec3 color;
 };
 
 #endif //RAYMARCHER_OBJECT_H

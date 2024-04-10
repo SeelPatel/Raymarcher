@@ -18,18 +18,14 @@ struct Object {
 	float r, g, b;
 };
 
-layout(std430, binding = 2) buffer ObjectBuffer
+layout(std430, binding = 1) buffer ObjectBuffer
 {
     Object[] objects;
 } object_buffer;
 
-// Buffer of object links
-
 const uint SoftUnion = 0x00000000u;
 const uint Subtraction  = 0x00000001u;
 const uint Intersection  = 0x00000002u;
-
-
 
 // Uniforms
 uniform mat4x4 view;

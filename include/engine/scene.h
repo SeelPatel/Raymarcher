@@ -7,12 +7,20 @@
 #include <compute/compute.h>
 #include <engine/image_renderer.h>
 
+#include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+
 struct Scene {
     Camera camera;
     std::vector<Object> objects;
 
-    Err setup_compute_shader(compute::ComputeShader &raymarcher, compute::ComputeBuffer &object_buffer,
-                             const ImageRenderer &image_renderer) const;
+    Err setup_raymarcher(compute::ComputeShader &raymarcher, compute::ComputeBuffer &object_buffer,
+                         const ImageRenderer &image_renderer) const;
+
+    void process_inputs(GLFWwindow *const window, const glm::vec2 &mouse_delta, float delta_time);
+
+private:
+
 };
 
 #endif //RAYMARCHER_SCENE_H

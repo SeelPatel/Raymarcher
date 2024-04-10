@@ -16,7 +16,7 @@ struct Camera {
     float pitch = 0;
 
     float speed = 20;
-    float sens = 10;
+    float sens = 0.5f;
 
     Camera() {
         update_vectors();

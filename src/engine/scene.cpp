@@ -1,12 +1,15 @@
 #include <engine/scene.h>
 
-Err Scene::setup_compute_shader(compute::ComputeShader &raymarcher, compute::ComputeBuffer &object_buffer,
-                                const ImageRenderer &image_renderer) const {
+Err Scene::setup_raymarcher(compute::ComputeShader &raymarcher, compute::ComputeBuffer &object_buffer,
+                            const ImageRenderer &image_renderer) const {
     // Fill object buffer
     object_buffer.reset();
     for (const Object &object: objects) {
         if (Err err = object_buffer.write(object)) return err.add("Failed to write scene object to buffer");
     }
+
+    object_buffer.transfer_to_gpu();
+    raymarcher.bind_buffer(object_buffer, 1);
 
     // todo make these configurable
     bool render_shadows = true;
@@ -52,3 +55,22 @@ Err Scene::setup_compute_shader(compute::ComputeShader &raymarcher, compute::Com
     return {};
 }
 
+void Scene::process_inputs(GLFWwindow *const window, const glm::vec2 &mouse_delta, float delta_time) {
+
+    glm::vec3 translation(0);
+
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+        translation.z += 1;
+
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        translation.z -= 1;
+
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+        translation.x -= 1;
+
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+        translation.x += 1;
+
+    camera.translate(delta_time * translation);
+    camera.rotate(-mouse_delta.x, mouse_delta.y);
+}
