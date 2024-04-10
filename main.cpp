@@ -70,8 +70,8 @@ int main() {
 
     // Setup scene
     Scene scene;
-    scene.objects.emplace_back(Object(Object::Type::InfiniteSpheres, {5, 0, 0}, {6, 6, 6}, {1.0f, 0.0f, 1.0f}));
-    scene.camera.translate({0, 0, -5});
+    scene.objects.emplace_back(Object(Object::Type::Sphere, 10, 0, 0, 6, 6, 6, 1.0f, 0.0f, 1.0f));
+    scene.objects.emplace_back(Object(Object::Type::Box, 20, 0, 0, 6, 6, 6, 1.0f, 0.0f, 1.0f));
 
     // Render loop
     float last_frame_time = static_cast<float>(glfwGetTime());

@@ -15,7 +15,7 @@ struct Camera {
     float yaw = 0;
     float pitch = 0;
 
-    float speed = 20;
+    float speed = 30;
     float sens = 0.5f;
 
     Camera() {

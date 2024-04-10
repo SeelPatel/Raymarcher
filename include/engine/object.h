@@ -4,13 +4,13 @@
 #include <glm/glm.hpp>
 
 struct Object {
-    enum class Type : int {
+    enum class Type : uint32_t {
         Sphere, Box, Torus, InfiniteSpheres
     } type;
 
-    glm::vec3 pos;
-    glm::vec3 scale;
-    glm::vec3 color;
+    float x, y, z;
+    float sx, sy, sz;
+    float r, g, b;
 };
 
 #endif //RAYMARCHER_OBJECT_H
