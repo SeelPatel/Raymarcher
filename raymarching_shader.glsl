@@ -42,7 +42,8 @@ uniform uint image_width;
 uniform uint image_height;
 uniform uint num_objects;
 
-uniform vec3 fog_color;
+uniform vec3 sky_bottom_color;
+uniform vec3 sky_top_color;
 uniform float fog_dist;
 uniform float shadow_intensity;
 
@@ -140,20 +141,19 @@ vec3 get_ray_origin() {
     return (view * vec4(0, 0, 0, 1.0)).xyz;
 }
 
-vec3 get_ray_direction(vec2 uv) {
+vec3 get_ray_direction(in vec2 uv) {
     vec3 dir = (inv_proj * vec4(uv, 0, 1.0)).xyz;
     dir = (view * vec4(dir, 0)).xyz;
     dir = normalize(dir);
     return dir;
 }
 
-vec4 query_scene(vec3 pos) {
-    vec3 color = vec3(0, 0, 0);
-    float min_dist = MAX;
+void query_scene(in vec3 pos, out vec3 color, out float min_dist) {
+    color = vec3(0, 0, 0);
+    min_dist = MAX;
 
     for (int i = 0; i < num_objects; i++) {
         Object curr = object_buffer.objects[i];
-
 
         float curr_dist = find_distance_to_object(curr, pos);
         if (curr_dist < min_dist) {
@@ -161,14 +161,19 @@ vec4 query_scene(vec3 pos) {
             color = vec3(curr.r, curr.g, curr.b);
         }
     }
-
-    return vec4(color, min_dist);
 }
 
-vec3 estimate_surface_normal(vec3 p) {
-    float x = query_scene(vec3(p.x+eps, p.y, p.z)).w - query_scene(vec3(p.x-eps, p.y, p.z)).w;
-    float y = query_scene(vec3(p.x, p.y+eps, p.z)).w - query_scene(vec3(p.x, p.y-eps, p.z)).w;
-    float z = query_scene(vec3(p.x, p.y, p.z+eps)).w - query_scene(vec3(p.x, p.y, p.z-eps)).w;
+float query_scene_dist(in vec3 pos) {
+    vec3 surface_color;
+    float dist;
+    query_scene(pos, surface_color, dist);
+    return dist;
+}
+
+vec3 estimate_surface_normal(in vec3 p) {
+    float x = query_scene_dist(vec3(p.x+eps, p.y, p.z)) - query_scene_dist(vec3(p.x-eps, p.y, p.z));
+    float y = query_scene_dist(vec3(p.x, p.y+eps, p.z)) - query_scene_dist(vec3(p.x, p.y-eps, p.z));
+    float z = query_scene_dist(vec3(p.x, p.y, p.z+eps)) - query_scene_dist(vec3(p.x, p.y, p.z-eps));
 
     return normalize(vec3(x, y, z));
 }
@@ -177,22 +182,27 @@ float compute_shadow(vec3 origin, vec3 direction, float dst_to_light) {
     int num_steps = 0;
     float total_dist = 0;
 
-    while (total_dist < shadow_max_dist && num_steps < shadow_max_steps) {
-        vec4 result = query_scene(origin);
+    // For calculating soft shadows
+    const float soft_shadow_factor = 8;
+    float result = 1.0f;
 
-        vec3 surface_color = result.xyz;
-        float dist = result.w;
+    while (total_dist < shadow_max_dist && num_steps < shadow_max_steps) {
+        vec3 surface_color;
+        float dist;
+        query_scene(origin, surface_color, dist);
 
         if (dist < shadow_eps) {
             return shadow_intensity;
         }
+
+        result = min(result, shadow_intensity + soft_shadow_factor * dist / total_dist);
 
         origin = origin + direction * dist;
         total_dist += dist;
         num_steps++;
     }
 
-    return 1;
+    return result;
 }
 
 
@@ -213,10 +223,9 @@ void main() {
     bool hit_obj = false;
 
     while (total_dist < max_dist && num_steps < max_steps) {
-        vec4 result = query_scene(origin);
-
-        vec3 surface_color = result.xyz;
-        float dist = result.w;
+        vec3 surface_color;
+        float dist;
+        query_scene(origin, surface_color, dist);
 
         // Hit object
         if (dist < eps) {
@@ -255,8 +264,7 @@ void main() {
 
     // Apply fog to output pixel
     float fog_value = clamp((hit_obj ? total_dist : MAX)/fog_dist, 0.0, 1.0);
-    float fog_color_scale = clamp(direction.y, 0.0, 1.0);
-    vec3 fog_out_color = mix(fog_color, vec3(1, 1, 1), fog_color_scale);
+    vec3 fog_out_color = mix(sky_bottom_color, sky_top_color, clamp(direction.y, 0.0, 1.0));
 
     out_pixel = vec4(mix(out_pixel.xyz, fog_out_color, fog_value), 1);
 

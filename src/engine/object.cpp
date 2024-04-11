@@ -7,7 +7,6 @@ std::expected<size_t, Err> Object::write_to_buffer(compute::ComputeBuffer &buf) 
 std::expected<size_t, Err> Object::write_to_buffer_impl(compute::ComputeBuffer &buf, const glm::vec3 &parent_pos,
                                                         const glm::vec3 &parent_scale) const {
     Err err;
-
     const glm::vec3 global_pos = parent_pos + pos;
     const glm::vec3 global_scale = parent_scale * scale;
 

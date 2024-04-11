@@ -70,9 +70,13 @@ int main() {
 
     // Setup scene
     Scene scene;
-    scene.root.children.emplace_back(Object(Object::ObjectType::Sphere, {9, -10, 5}, {6, 6, 6}, {0.0f, 0.0f, 0.0f}));
-    scene.root.children[0].children.emplace_back(
-            Object(Object::ObjectType::Box, {0, 10, 0}, {1, 1, 1}, {1.0f, 1.0f, 0.0f}));
+    scene.root.children.emplace_back(
+            Object(Object::ObjectType::Box, {10, 0, 0}, {50, 0.2f, 50}, {1.0f, 1.0f, 1.0f}, {}));
+
+    scene.root.children.emplace_back(
+            Object(Object::ObjectType::Box, {20, 3, 20}, {6, 6, 6}, {1.0f, 1.0f, 1.0f}));
+    scene.root.children.emplace_back(
+            Object(Object::ObjectType::Sphere, {10, -1.5, 0}, {6, 1, 1}, {1.0f, 1.0f, 1.0f}));
 
     // Render loop
     float last_frame_time = static_cast<float>(glfwGetTime());

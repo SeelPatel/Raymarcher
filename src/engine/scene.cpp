@@ -17,8 +17,9 @@ Err Scene::setup_raymarcher(compute::ComputeShader &raymarcher, compute::Compute
     bool render_lighting = true;
     bool render_links;
     float fov = 75.0f;
-    float fog_distance = 64;
-    glm::vec3 fog_color = glm::vec3(30, 93, 87) / 255.0f;
+    float fog_distance = 100;
+    glm::vec3 sky_bottom = glm::vec3(242, 231, 255) / 255.0f;
+    glm::vec3 sky_top = glm::vec3(120, 128, 170) / 255.0f;
     float shadow_intensity = 0.7;
     bool visualize_distances = false;
 
@@ -38,7 +39,9 @@ Err Scene::setup_raymarcher(compute::ComputeShader &raymarcher, compute::Compute
 
     raymarcher.bind("num_objects", (GLuint) objects_write_result.value());
 
-    raymarcher.bind("fog_color", fog_color);
+    raymarcher.bind("sky_top_color", sky_top);
+    raymarcher.bind("sky_bottom_color", sky_bottom);
+
     raymarcher.bind("fog_dist", fog_distance);
     raymarcher.bind("shadow_intensity", shadow_intensity);
 
@@ -46,8 +49,8 @@ Err Scene::setup_raymarcher(compute::ComputeShader &raymarcher, compute::Compute
 
     // TEMP: light. use buffer of lights in the future
     const glm::vec3 light_dir = glm::normalize(glm::vec3(-1, -1, 0));
-    constexpr glm::vec3 light_pos(-10, 10, 0);
-    constexpr glm::vec3 light_color(1, 1, 1);
+    constexpr glm::vec3 light_pos(-25, 25, 0);
+    constexpr glm::vec3 light_color = glm::vec3(255, 237, 227) / 255.0f;
 
     raymarcher.bind("light_direction", light_dir);
     raymarcher.bind("light_pos", light_pos);
