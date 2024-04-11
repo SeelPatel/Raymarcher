@@ -12,7 +12,7 @@
 
 struct Scene {
     Camera camera;
-    std::vector<Object> objects;
+    Object root{Object::ObjectType::Placeholder, {0, 0, 0}, {1, 1, 1}, {0, 0, 0}, Object::LinkType::Default, {}};
 
     Err setup_raymarcher(compute::ComputeShader &raymarcher, compute::ComputeBuffer &object_buffer,
                          const ImageRenderer &image_renderer) const;

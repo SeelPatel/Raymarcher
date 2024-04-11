@@ -70,8 +70,9 @@ int main() {
 
     // Setup scene
     Scene scene;
-    scene.objects.emplace_back(Object(Object::Type::Sphere, 10, 0, 0, 6, 6, 6, 1.0f, 0.0f, 1.0f));
-    scene.objects.emplace_back(Object(Object::Type::Box, 20, 0, 0, 6, 6, 6, 1.0f, 0.0f, 1.0f));
+    scene.root.children.emplace_back(Object(Object::ObjectType::Sphere, {9, -10, 5}, {6, 6, 6}, {0.0f, 0.0f, 0.0f}));
+    scene.root.children[0].children.emplace_back(
+            Object(Object::ObjectType::Box, {0, 10, 0}, {1, 1, 1}, {1.0f, 1.0f, 0.0f}));
 
     // Render loop
     float last_frame_time = static_cast<float>(glfwGetTime());
@@ -81,13 +82,12 @@ int main() {
         const float delta_time = current_frame_time - last_frame_time;
         last_frame_time = current_frame_time;
 
-        // Begin new frame
-        inputs.mouse_delta = {0, 0};
-        glfwPollEvents();
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        // Update scene
+        // process events and update scene
+        inputs.mouse_delta = {0, 0};
+        glfwPollEvents();
         scene.process_inputs(window, inputs.mouse_delta, delta_time);
 
         // Run raymarcher

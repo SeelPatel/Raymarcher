@@ -1,12 +1,13 @@
 #include <engine/scene.h>
 
+
 Err Scene::setup_raymarcher(compute::ComputeShader &raymarcher, compute::ComputeBuffer &object_buffer,
                             const ImageRenderer &image_renderer) const {
     // Fill object buffer
     object_buffer.reset();
-    for (const Object &object: objects) {
-        if (Err err = object_buffer.write(object)) return err.add("Failed to write scene object to buffer");
-    }
+    const std::expected<size_t, Err> objects_write_result = root.write_to_buffer(object_buffer);
+
+    if (!objects_write_result) return objects_write_result.error();
 
     object_buffer.transfer_to_gpu();
     raymarcher.bind_buffer(object_buffer, 1);
@@ -17,7 +18,7 @@ Err Scene::setup_raymarcher(compute::ComputeShader &raymarcher, compute::Compute
     bool render_links;
     float fov = 75.0f;
     float fog_distance = 64;
-    glm::vec3 fog_color = glm::vec3(0, 53, 57) / 255.0f;
+    glm::vec3 fog_color = glm::vec3(30, 93, 87) / 255.0f;
     float shadow_intensity = 0.7;
     bool visualize_distances = false;
 
@@ -35,7 +36,7 @@ Err Scene::setup_raymarcher(compute::ComputeShader &raymarcher, compute::Compute
     raymarcher.bind("image_width", image_renderer.image_width());
     raymarcher.bind("image_height", image_renderer.image_height());
 
-    raymarcher.bind("num_objects", (GLuint) objects.size());
+    raymarcher.bind("num_objects", (GLuint) objects_write_result.value());
 
     raymarcher.bind("fog_color", fog_color);
     raymarcher.bind("fog_dist", fog_distance);

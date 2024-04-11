@@ -4,18 +4,28 @@ layout(local_size_x = 32, local_size_y = 32) in;
 // Output image	
 layout(rgba32f, binding = 0) uniform image2D img_output;
 
+// Object types
+const uint Placeholder = 0u;
+const uint Sphere = 1u;
+const uint Box  = 2u;
+const uint Torus  = 3u;
+const uint InfiniteSpheres = 4u;
+
+// Link types
+const uint Default = 0u;
+const uint SoftUnion = 1u;
+const uint Subtraction = 2u;
+const uint Intersection = 3u;
+
 // Buffer of objects
-
-const uint Sphere = 0u;
-const uint Box  = 1u;
-const uint Torus  = 2u;
-const uint InfiniteSpheres = 3u;
-
 struct Object {
     uint type;
     float x, y, z;
     float sx, sy, sz;
     float r, g, b;
+
+    uint link_type;
+    uint num_children;
 };
 
 layout(std430, binding = 1) buffer ObjectBuffer
@@ -23,9 +33,6 @@ layout(std430, binding = 1) buffer ObjectBuffer
     Object[] objects;
 } object_buffer;
 
-const uint SoftUnion = 0x00000000u;
-const uint Subtraction  = 0x00000001u;
-const uint Intersection  = 0x00000002u;
 
 // Uniforms
 uniform mat4x4 view;
@@ -48,6 +55,7 @@ uniform vec3 light_color;
 
 
 // Constants
+// todo make these configurable
 const float MAX = 1234567890123456789024.0f;
 const float max_dist = 100.0;
 const float eps = 0.05;
@@ -128,36 +136,6 @@ vec4 intersection(vec4 a, vec4 b) {
     return vec4(a.xyz, max(a.w, b.w));
 }
 
-// returns color in xyz, and distance in w
-vec4 find_combined_values(Object o1, Object o2, int link_type, vec3 pos) {
-    float o1_dist = find_distance_to_object(o1, pos);
-    float o2_dist = find_distance_to_object(o2, pos);
-
-    vec4 o1_data = vec4(o1.r, o1.g, o1.b, o1_dist);
-    vec4 o2_data = vec4(o2.r, o2.g, o2.b, o2_dist);
-
-    if (link_type == SoftUnion) {
-        return smooth_min(o1_data, o2_data, 10);
-    }
-
-    if (link_type == Subtraction) {
-        return subtraction(o1_data, o2_data);
-    }
-
-    if (link_type == Intersection) {
-        return intersection(o1_data, o2_data);
-    }
-
-
-    // default
-    if (o1_dist < o2_dist) {
-        return o1_data;
-    }
-    else {
-        return o2_data;
-    }
-}
-
 vec3 get_ray_origin() {
     return (view * vec4(0, 0, 0, 1.0)).xyz;
 }
@@ -175,8 +153,9 @@ vec4 query_scene(vec3 pos) {
 
     for (int i = 0; i < num_objects; i++) {
         Object curr = object_buffer.objects[i];
-        float curr_dist = find_distance_to_object(curr, pos);
 
+
+        float curr_dist = find_distance_to_object(curr, pos);
         if (curr_dist < min_dist) {
             min_dist = curr_dist;
             color = vec3(curr.r, curr.g, curr.b);
@@ -218,16 +197,15 @@ float compute_shadow(vec3 origin, vec3 direction, float dst_to_light) {
 
 
 void main() {
-
-    ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+    const ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
     vec4 out_pixel = vec4(0.0, 0.0, 0.0, 1.0);
 
     // Get current UV coordinates
-    vec2 uv = vec2(gl_GlobalInvocationID.xy) / vec2(image_width, image_height) * 2 - 1;
+    const vec2 uv = vec2(gl_GlobalInvocationID.xy) / vec2(image_width, image_height) * 2 - 1;
 
     // Get current ray
     vec3 origin = get_ray_origin();
-    vec3 direction = get_ray_direction(uv);
+    const vec3 direction = get_ray_direction(uv);
 
     // Raymarching
     int num_steps = 0;
@@ -265,7 +243,6 @@ void main() {
                 shadow_value = compute_shadow(shadow_offset_pos, dir_to_light, dist_to_light);
             }
 
-
             vec3 final_color = lit_color * shadow_value;
             out_pixel = vec4(final_color, 1.0);
             break;
@@ -277,11 +254,11 @@ void main() {
     }
 
     // Apply fog to output pixel
-    float fog_value = max(0.0, min(1.0, (hit_obj ? total_dist : MAX)/fog_dist));
-    float fog_color_scale = max(0.0, min(1.0, (direction.y)));
-    vec3 fog_out_color = fog_color_scale * vec3(1, 1, 1) + (1-fog_color_scale) * fog_color;
+    float fog_value = clamp((hit_obj ? total_dist : MAX)/fog_dist, 0.0, 1.0);
+    float fog_color_scale = clamp(direction.y, 0.0, 1.0);
+    vec3 fog_out_color = mix(fog_color, vec3(1, 1, 1), fog_color_scale);
 
-    out_pixel = vec4((fog_value * fog_out_color) + (1-fog_value) * out_pixel.xyz, 1);
+    out_pixel = vec4(mix(out_pixel.xyz, fog_out_color, fog_value), 1);
 
     if (visualize_distances) {
         float val = 1 - 5 * float(num_steps) / max_steps;
