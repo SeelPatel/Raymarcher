@@ -5,27 +5,13 @@ Err Scene::setup_raymarcher(compute::ComputeShader &raymarcher, compute::Compute
                             const ImageRenderer &image_renderer) const {
     // Fill object buffer
     object_buffer.reset();
-    const std::expected<size_t, Err> objects_write_result = root.write_to_buffer(object_buffer);
+    const std::expected<size_t, Err> objects_write_result = root.write_to_compute_buffer(object_buffer);
 
     if (!objects_write_result) return objects_write_result.error();
 
     object_buffer.transfer_to_gpu();
     raymarcher.bind_buffer(object_buffer, 1);
 
-    // todo make these configurable
-    bool render_shadows = true;
-    bool render_lighting = true;
-    bool render_links;
-    float fov = 75.0f;
-    float fog_distance = 100;
-    glm::vec3 sky_bottom = glm::vec3(242, 231, 255) / 255.0f;
-    glm::vec3 sky_top = glm::vec3(120, 128, 170) / 255.0f;
-    float shadow_intensity = 0.7;
-    bool visualize_distances = false;
-
-    // Set shader uniforms
-
-    // todo double check the math here
     const glm::mat4 view = camera.view_matrix();
     const glm::mat4 proj = glm::perspective(glm::radians(fov), 16.0f / 9.0f, 0.1f, 100.0f);
     const glm::mat4 proj_inverse = glm::inverse(proj);
@@ -39,8 +25,8 @@ Err Scene::setup_raymarcher(compute::ComputeShader &raymarcher, compute::Compute
 
     raymarcher.bind("num_objects", (GLuint) objects_write_result.value());
 
-    raymarcher.bind("sky_top_color", sky_top);
-    raymarcher.bind("sky_bottom_color", sky_bottom);
+    raymarcher.bind("sky_top_color", sky_top_color);
+    raymarcher.bind("sky_bottom_color", sky_bottom_color);
 
     raymarcher.bind("fog_dist", fog_distance);
     raymarcher.bind("shadow_intensity", shadow_intensity);
@@ -48,9 +34,6 @@ Err Scene::setup_raymarcher(compute::ComputeShader &raymarcher, compute::Compute
     raymarcher.bind("visualize_distances", visualize_distances);
 
     // TEMP: light. use buffer of lights in the future
-    const glm::vec3 light_dir = glm::normalize(glm::vec3(-1, -1, 0));
-    constexpr glm::vec3 light_pos(-25, 25, 0);
-    constexpr glm::vec3 light_color = glm::vec3(255, 237, 227) / 255.0f;
 
     raymarcher.bind("light_direction", light_dir);
     raymarcher.bind("light_pos", light_pos);
@@ -77,4 +60,22 @@ void Scene::process_inputs(GLFWwindow *const window, const glm::vec2 &mouse_delt
 
     camera.translate(delta_time * translation);
     camera.rotate(-mouse_delta.x, mouse_delta.y);
+}
+
+Err Scene::write_to_buffer(Buffer &buffer) const {
+    Err err;
+    if ((err = buffer.write(fov, fog_distance, sky_bottom_color, sky_top_color, shadow_intensity,
+                            visualize_distances, light_dir, light_pos, light_color)))
+        return err;
+    if ((err = root.write_to_buffer(buffer))) return err;
+    return err;
+}
+
+Err Scene::read_from_buffer(Buffer &buffer) {
+    Err err;
+    if ((err = buffer.read(fov, fog_distance, sky_bottom_color, sky_top_color, shadow_intensity,
+                           visualize_distances, light_dir, light_pos, light_color)))
+        return err;
+    if ((err = root.read_from_buffer(buffer))) return err;
+    return err;
 }

@@ -1,16 +1,22 @@
 #include <iostream>
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
 
 #include <compute/compute.h>
 #include <engine/scene.h>
 #include <engine/image_renderer.h>
+#include <editor/viewport.h>
+#include <editor/scene_editor.h>
+#include <editor/editor_data.h>
+#include <editor/imgui_utils.h>
+
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
 
 bool input_state_initialized = false;
-struct InputState {
-    glm::vec2 prev_mouse_pos;
-    glm::vec2 mouse_delta;
-} inputs;
+editor::InputState inputs;
 
 void framebuffer_size_callback([[maybe_unused]] GLFWwindow *window, const int width, const int height) {
     glViewport(0, 0, width, height);
@@ -30,13 +36,12 @@ void cursor_pos_callback(GLFWwindow *window, const double xpos, const double ypo
 }
 
 int main() {
-    // Setup GLFW
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    GLFWwindow *window = glfwCreateWindow(1280, 720, "Raymarcher", nullptr, nullptr);
+    GLFWwindow *window = glfwCreateWindow(1600, 900, "Raymarcher", nullptr, nullptr);
     if (!window) {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
@@ -47,7 +52,6 @@ int main() {
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
     glfwSetCursorPosCallback(window, cursor_pos_callback);
 
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
 
     glfwMakeContextCurrent(window);
@@ -55,6 +59,17 @@ int main() {
         std::cout << "Failed to initialize GLAD" << std::endl;
         return -1;
     }
+
+    // Setup ImGui
+    ImGui::CreateContext();
+    ImGuiIO &io = ImGui::GetIO();
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    ImGui::StyleColorsDark();
+
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 460");
+    editor::setup_theme();
 
     // Setup Raymarching shader and rendering
     ImageRenderer renderer(1280, 720);
@@ -68,15 +83,23 @@ int main() {
         return -1;
     }
 
+
     // Setup scene
     Scene scene;
-    scene.root.children.emplace_back(
-            Object(Object::ObjectType::Box, {10, 0, 0}, {50, 0.2f, 50}, {1.0f, 1.0f, 1.0f}, {}));
 
-    scene.root.children.emplace_back(
-            Object(Object::ObjectType::Box, {20, 3, 20}, {6, 6, 6}, {1.0f, 1.0f, 1.0f}));
-    scene.root.children.emplace_back(
-            Object(Object::ObjectType::Sphere, {10, -1.5, 0}, {6, 1, 1}, {1.0f, 1.0f, 1.0f}));
+    // Load scene from file.
+    if (std::filesystem::exists("test.scene")) {
+        Buffer buffer;
+        if (!(err = buffer.read_from_file("test.scene"))) {
+            if ((err = scene.read_from_buffer(buffer))) {
+                scene = Scene();
+            }
+        }
+    }
+
+    // Setup editor
+    editor::Viewport viewport;
+    editor::SceneEditor scene_editor;
 
     // Render loop
     float last_frame_time = static_cast<float>(glfwGetTime());
@@ -92,7 +115,12 @@ int main() {
         // process events and update scene
         inputs.mouse_delta = {0, 0};
         glfwPollEvents();
-        scene.process_inputs(window, inputs.mouse_delta, delta_time);
+
+        // Start the ImGui frame
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+        ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
         // Run raymarcher
         raymarcher.activate();
@@ -106,13 +134,23 @@ int main() {
         glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-        // Render scene
-        renderer.draw();
+        // Update editor.
+        editor::EditorData editor_data{window, delta_time, scene, inputs, renderer};
+        viewport.update(editor_data);
+        scene_editor.update(editor_data);
+
+        // Render ImGUI
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         // Swap buffers
         glfwSwapBuffers(window);
     }
 
+    // Save scene
+    Buffer buffer;
+    scene.write_to_buffer(buffer);
+    buffer.write_to_file("test.scene");
 
     return 0;
 }

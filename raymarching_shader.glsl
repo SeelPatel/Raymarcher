@@ -62,7 +62,7 @@ const float max_dist = 100.0;
 const float eps = 0.05;
 const float max_steps = 128;
 
-const float shadow_eps = 0.1;
+const float shadow_eps = 0.05;
 const float shadow_max_steps = 64;
 const float shadow_max_dist = 50.0;
 
@@ -179,14 +179,16 @@ vec3 estimate_surface_normal(in vec3 p) {
 }
 
 float compute_shadow(vec3 origin, vec3 direction, float dst_to_light) {
+    const float dist_limit = max(shadow_max_dist, dst_to_light);
+
     int num_steps = 0;
     float total_dist = 0;
 
     // For calculating soft shadows
-    const float soft_shadow_factor = 8;
+    const float soft_shadow_factor = 32;
     float result = 1.0f;
 
-    while (total_dist < shadow_max_dist && num_steps < shadow_max_steps) {
+    while (total_dist < dist_limit && num_steps < shadow_max_steps) {
         vec3 surface_color;
         float dist;
         query_scene(origin, surface_color, dist);
@@ -233,27 +235,21 @@ void main() {
 
             vec3 hit_point = origin + dist * direction;
             vec3 surface_normal = estimate_surface_normal(hit_point - eps * direction);
-            vec3 light_dir = normalize(light_pos - hit_point);
 
-            // Compute lighting
-            float NdotL = min(1.0, max(0.0, dot(surface_normal, light_dir)));
-            vec3 half_lambert = pow(NdotL * 0.5 + 0.5, 2.0) * surface_color;
+            // Compute shadows
+            vec3 shadow_offset_pos = hit_point + surface_normal * eps*3;
+            vec3 dir_to_light = light_pos - shadow_offset_pos;
+            float dist_to_light = length(dir_to_light);
+            dir_to_light = normalize(dir_to_light);
+            float shadow_value = compute_shadow(shadow_offset_pos, dir_to_light, dist_to_light);
+
+            // Compute light
+            dir_to_light = normalize(light_pos - hit_point);
+            float n_dot_l = clamp(dot(surface_normal, dir_to_light), 0.0, 1.0) * (shadow_value);
+            vec3 half_lambert = pow(n_dot_l * 0.5 + 0.5, 2.0) * surface_color;
             vec3 lit_color = half_lambert * 1.5 * light_color;
 
-            bool use_shadows = true;
-            float shadow_value = 1;
-
-            if (use_shadows) {
-                // Compute shadows
-                vec3 shadow_offset_pos = hit_point + surface_normal * eps*3;
-                vec3 dir_to_light = light_pos - shadow_offset_pos;
-                float dist_to_light = length(dir_to_light);
-                dir_to_light = normalize(dir_to_light);
-                shadow_value = compute_shadow(shadow_offset_pos, dir_to_light, dist_to_light);
-            }
-
-            vec3 final_color = lit_color * shadow_value;
-            out_pixel = vec4(final_color, 1.0);
+            out_pixel = vec4(lit_color, 1.0);
             break;
         }
 

@@ -9,7 +9,7 @@ file(GLOB_RECURSE RAYMARCHER_SOURCE CONFIGURE_DEPENDS "src/*.cpp")
 file(GLOB_RECURSE RAYMARCHER_INCLUDE CONFIGURE_DEPENDS "include/*.h")
 
 add_library(core STATIC ${RAYMARCHER_SOURCE} ${RAYMARCHER_INCLUDE})
-target_link_libraries(core glfw glm glad)
+target_link_libraries(core glfw glm glad imgui)
 
 # Create executable
 add_executable(Raymarcher main.cpp)

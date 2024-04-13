@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <filesystem>
 
 class Buffer {
     uint8_t *data;
@@ -26,6 +27,11 @@ public:
 
     Buffer &operator=(const Buffer &) = delete;
 
+    Err read_from_file(const std::filesystem::path &path);
+
+    Err write_to_file(const std::filesystem::path &path);
+
+
     Err expand(size_t amt);
 
     void free_data();
@@ -44,6 +50,10 @@ public:
     [[nodiscard]] constexpr uint8_t const *get_data() const { return data; };
 
     void zero_fill();
+
+    Err read(std::string &ret);
+
+    Err write(const std::string &val);
 
     template<trivial_type T>
     Err write(const T &val) {
@@ -73,14 +83,14 @@ public:
         return {};
     }
 
-    template<trivial_type ...T>
+    template<typename ...T>
     Err write(const T &...vals) {
         Err result{};
         ((!(result = write(vals))) && ...);
         return result;
     }
 
-    template<trivial_type ...T>
+    template<typename...T>
     Err read(T &...vals) {
         Err result{};
         ((!(result = read(vals))) && ...);

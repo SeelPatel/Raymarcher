@@ -7,26 +7,46 @@
 
 #include <expected>
 
+enum class ObjectType : uint32_t {
+    Empty, Sphere, Box, Torus, InfiniteSpheres
+};
+
+enum class LinkType : uint32_t {
+    Default, SoftUnion, Subtraction, Intersection
+};
+
 struct Object {
-    enum class ObjectType : uint32_t {
-        Placeholder, Sphere, Box, Torus, InfiniteSpheres
-    } obj_type;
+    Object() = default;
 
-    glm::vec3 pos;
-    glm::vec3 scale;
-    glm::vec3 color;
+    Object(const std::string &name, ObjectType objType, const glm::vec3 &pos, const glm::vec3 &scale,
+           const glm::vec3 &color);
 
-    enum class LinkType : uint32_t {
-        Default, SoftUnion, Subtraction, Intersection
-    } link_type;
+    std::string name;
+
+    // Rest of these are sent to OpenGL
+    ObjectType obj_type = ObjectType::Box;
+    glm::vec3 pos{};
+    glm::vec3 scale{};
+    glm::vec3 color{};
+
+    LinkType link_type = LinkType::Default;
 
     std::vector<Object> children;
 
-    std::expected<size_t, Err> write_to_buffer(compute::ComputeBuffer &buf) const;
+    std::expected<size_t, Err> write_to_compute_buffer(compute::ComputeBuffer &buf) const;
+
+    Err write_to_buffer(Buffer &buffer) const;
+
+    Err read_from_buffer(Buffer &buffer);
+
+    constexpr uint32_t uuid() const { return id; };
 
 private:
+    uint32_t id = rand();
+
     std::expected<size_t, Err>
-    write_to_buffer_impl(compute::ComputeBuffer &buf, const glm::vec3 &parent_pos, const glm::vec3 &parent_scale) const;
+    write_to_compute_buffer_impl(compute::ComputeBuffer &buf, const glm::vec3 &parent_pos,
+                                 const glm::vec3 &parent_scale) const;
 };
 
 #endif //RAYMARCHER_OBJECT_H
