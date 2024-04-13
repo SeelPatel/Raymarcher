@@ -13,7 +13,9 @@ Err Scene::setup_raymarcher(compute::ComputeShader &raymarcher, compute::Compute
     raymarcher.bind_buffer(object_buffer, 1);
 
     const glm::mat4 view = camera.view_matrix();
-    const glm::mat4 proj = glm::perspective(glm::radians(fov), 16.0f / 9.0f, 0.1f, 100.0f);
+    const glm::mat4 proj = glm::perspective(glm::radians(fov),
+                                            ((float) image_renderer.image_width()) / image_renderer.image_height(),
+                                            0.1f, 100.0f);
     const glm::mat4 proj_inverse = glm::inverse(proj);
     const glm::mat4 view_inverse = glm::inverse(view);
 

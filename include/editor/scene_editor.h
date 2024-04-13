@@ -28,6 +28,13 @@ namespace editor {
                 {ObjectType::InfiniteSpheres, "Infinite Spheres"},
                 {ObjectType::Torus,           "Torus"},
         };
+
+        const std::unordered_map<LinkType, std::string_view> link_type_mapping = {
+                {LinkType::Default,      "Default"},
+                {LinkType::Intersection, "Intersection"},
+                {LinkType::SoftUnion,    "Soft Union"},
+                {LinkType::Subtraction,  "Subtraction"},
+        };
     public:
         void update(EditorData &state);
 

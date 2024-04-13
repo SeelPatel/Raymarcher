@@ -57,9 +57,8 @@ namespace editor {
         // Modify Type
         if (ImGui::BeginCombo("Type", obj_type_mapping.at(object.obj_type).data())) {
             for (const auto &[obj_type, type_string]: obj_type_mapping) {
-                if (ImGui::Selectable(obj_type_mapping.at(obj_type).data(), obj_type == object.obj_type)) {
+                if (ImGui::Selectable(obj_type_mapping.at(obj_type).data(), obj_type == object.obj_type))
                     object.obj_type = obj_type;
-                }
             }
             ImGui::EndCombo();
         }
@@ -74,6 +73,13 @@ namespace editor {
         ImGui::Separator();
 
         // Modify link type
+        if (ImGui::BeginCombo("Link Type", link_type_mapping.at(object.link_type).data())) {
+            for (const auto &[link_type, type_string]: link_type_mapping) {
+                if (ImGui::Selectable(link_type_mapping.at(link_type).data(), link_type == object.link_type))
+                    object.link_type = link_type;
+            }
+            ImGui::EndCombo();
+        }
 
         ImGui::End();
     }
@@ -85,11 +91,13 @@ namespace editor {
         SceneEditor::Action result = Action::NONE;
 
         // Button to add child
-        if (ImGui::Button(std::format("+##{}", object.uuid()).c_str())) {
-            object.children.emplace_back(
-                    Object(std::format("{} child", object.name), ObjectType::Box, {0, 0, 0}, {1, 1, 1}, {1, 1, 1}));
+        if (level < 2) {
+            if (ImGui::Button(std::format("+##{}", object.uuid()).c_str())) {
+                object.children.emplace_back(
+                        Object(std::format("{} child", object.name), ObjectType::Box, {0, 0, 0}, {1, 1, 1}, {1, 1, 1}));
+            }
+            ImGui::SameLine();
         }
-        ImGui::SameLine();
 
         // Button to delete object
         if (level != 0) {

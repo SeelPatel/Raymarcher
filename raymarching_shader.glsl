@@ -91,7 +91,6 @@ float sdInfiniteSpheres(vec3 p, vec3 s)
 }
 
 // Select distance function based on object type
-
 float find_distance_to_object(Object curr, vec3 pos) {
     vec3 obj_pos = vec3(curr.x, curr.y, curr.z);
 
@@ -130,12 +129,39 @@ vec4 smooth_min(vec4 a, vec4 b, float k)
 }
 
 vec4 subtraction(vec4 a, vec4 b) {
-    return vec4(a.xyz, max(-a.w, b.w));
+    return vec4(a.xyz, max(-b.w, a.w));
 }
 
 vec4 intersection(vec4 a, vec4 b) {
     return vec4(a.xyz, max(a.w, b.w));
 }
+
+vec4 combined_query(in vec4 curr_data, in Object other, in vec3 pos) {
+    const uint link_type = other.link_type;
+    float other_dist = find_distance_to_object(other, pos);
+    vec4 other_data = vec4(other.r, other.g, other.b, other_dist);
+
+    if (link_type == SoftUnion) {
+        return smooth_min(curr_data, other_data, 10);
+    }
+
+    if (link_type == Subtraction) {
+        return subtraction(curr_data, other_data);
+    }
+
+    if (link_type == Intersection) {
+        return intersection(curr_data, other_data);
+    }
+
+    // default
+    if (curr_data.w < other_data.w) {
+        return curr_data;
+    }
+
+    return other_data;
+}
+
+
 
 vec3 get_ray_origin() {
     return (view * vec4(0, 0, 0, 1.0)).xyz;
@@ -152,13 +178,22 @@ void query_scene(in vec3 pos, out vec3 color, out float min_dist) {
     color = vec3(0, 0, 0);
     min_dist = MAX;
 
-    for (int i = 0; i < num_objects; i++) {
+    for (uint i = 0; i < num_objects; i++) {
         Object curr = object_buffer.objects[i];
+        vec4 curr_data = vec4(curr.r, curr.g, curr.b, find_distance_to_object(curr, pos));
 
-        float curr_dist = find_distance_to_object(curr, pos);
-        if (curr_dist < min_dist) {
-            min_dist = curr_dist;
-            color = vec3(curr.r, curr.g, curr.b);
+        const bool linked =  (curr.type != Placeholder && curr.num_children > 0);
+
+        if (linked) {
+            for (uint c = 1; c <= curr.num_children; c++) {
+                curr_data = combined_query(curr_data, object_buffer.objects[i+c], pos);
+            }
+            i += curr.num_children;
+        }
+
+        if (curr_data.w < min_dist) {
+            min_dist = curr_data.w;
+            color = curr_data.rgb;
         }
     }
 }
