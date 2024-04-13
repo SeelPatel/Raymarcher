@@ -59,10 +59,10 @@ uniform vec3 light_color;
 // todo make these configurable
 const float MAX = 1234567890123456789024.0f;
 const float max_dist = 100.0;
-const float eps = 0.05;
+const float eps = 0.01;
 const float max_steps = 128;
 
-const float shadow_eps = 0.05;
+const float shadow_eps = 0.01;
 const float shadow_max_steps = 64;
 const float shadow_max_dist = 50.0;
 
@@ -179,7 +179,7 @@ vec3 estimate_surface_normal(in vec3 p) {
 }
 
 float compute_shadow(vec3 origin, vec3 direction, float dst_to_light) {
-    const float dist_limit = max(shadow_max_dist, dst_to_light);
+    const float dist_limit = min(shadow_max_dist, dst_to_light);
 
     int num_steps = 0;
     float total_dist = 0;
