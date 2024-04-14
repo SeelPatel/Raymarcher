@@ -13,7 +13,8 @@ Object::write_to_compute_buffer_impl(compute::ComputeBuffer &buf, const glm::vec
     const glm::vec3 global_scale = scale;
 
     const GLuint num_children = children.size();
-    if ((err = buf.write(obj_type, global_pos, global_scale, color, link_type, num_children))) return err;
+    if ((err = buf.write(obj_type, global_pos, global_scale, color, diffuse, specular, link_type, num_children)))
+        return err;
 
     size_t num_total_objects = 1;
     for (const Object &child: children) {
@@ -38,7 +39,7 @@ Object::Object(const std::string &name, ObjectType objType, const glm::vec3 &pos
 
 Err Object::write_to_buffer(Buffer &buffer) const {
     Err err;
-    if ((err = buffer.write(name, obj_type, pos, scale, color, link_type))) return err;
+    if ((err = buffer.write(name, obj_type, pos, scale, color, diffuse, specular, link_type))) return err;
 
     const uint16_t num_children = children.size();
     if ((err = buffer.write(num_children))) return err;
@@ -53,7 +54,7 @@ Err Object::write_to_buffer(Buffer &buffer) const {
 Err Object::read_from_buffer(Buffer &buffer) {
     Err err;
 
-    if ((err = buffer.read(name, obj_type, pos, scale, color, link_type))) return err;
+    if ((err = buffer.read(name, obj_type, pos, scale, color, diffuse, specular, link_type))) return err;
 
     uint16_t num_children;
     if ((err = buffer.read(num_children))) return err;

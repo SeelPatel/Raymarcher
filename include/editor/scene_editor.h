@@ -27,6 +27,10 @@ namespace editor {
                 {ObjectType::Sphere,          "Sphere"},
                 {ObjectType::InfiniteSpheres, "Infinite Spheres"},
                 {ObjectType::Torus,           "Torus"},
+                {ObjectType::RoundBox,        "Rounded Box"},
+                {ObjectType::Octohedron,      "Octohedron"},
+                {ObjectType::HexPrism,        "Hex Prism"},
+                {ObjectType::GridPlane,       "Grid Plane"},
         };
 
         const std::unordered_map<LinkType, std::string_view> link_type_mapping = {

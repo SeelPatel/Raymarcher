@@ -8,7 +8,7 @@
 #include <expected>
 
 enum class ObjectType : uint32_t {
-    Empty, Sphere, Box, Torus, InfiniteSpheres
+    Empty, Sphere, Box, Torus, InfiniteSpheres, RoundBox, Octohedron, HexPrism, GridPlane
 };
 
 enum class LinkType : uint32_t {
@@ -28,6 +28,9 @@ struct Object {
     glm::vec3 pos{};
     glm::vec3 scale{};
     glm::vec3 color{};
+
+    float diffuse = 1.0f;
+    float specular = 48.0f;
 
     LinkType link_type = LinkType::Default;
 

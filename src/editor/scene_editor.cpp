@@ -68,7 +68,11 @@ namespace editor {
         // Position, scale color
         ImGui::DragFloat3("Position", (float *) &object.pos, 0.125f);
         ImGui::DragFloat3("Scale", (float *) &object.scale, 0.125f);
+
+        ImGui::Separator();
         ImGui::ColorEdit3("Color", (float *) &object.color);
+        ImGui::SliderFloat("Diffuse", &object.diffuse, 0.0f, 2.0f);
+        ImGui::SliderFloat("Specular", &object.specular, 1.0f, 200.0f);
 
         ImGui::Separator();
 

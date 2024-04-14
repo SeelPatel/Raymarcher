@@ -10,6 +10,10 @@ const uint Sphere = 1u;
 const uint Box  = 2u;
 const uint Torus  = 3u;
 const uint InfiniteSpheres = 4u;
+const uint RoundBox = 5u;
+const uint Octohedron = 6u;
+const uint HexPrism = 7u;
+const uint GridPlane = 8u;
 
 // Link types
 const uint Default = 0u;
@@ -22,7 +26,10 @@ struct Object {
     uint type;
     float x, y, z;
     float sx, sy, sz;
+
     float r, g, b;
+    float diffuse;
+    float specular;
 
     uint link_type;
     uint num_children;
@@ -66,7 +73,7 @@ const float shadow_eps = 0.01;
 const float shadow_max_steps = 64;
 const float shadow_max_dist = 50.0;
 
-// Distance functions
+// Distance functions https://iquilezles.org/articles/distfunctions/
 float sdSphere(vec3 p, float s)
 {
     return length(p)-s;
@@ -88,6 +95,43 @@ float sdInfiniteSpheres(vec3 p, vec3 s)
 {
     vec3 q = p - s*round(p/s);
     return sdSphere(q, 1);
+}
+
+float sdRoundBox(vec3 p, vec3 b, float r)
+{
+    vec3 q = abs(p) - b + r;
+    return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0) - r;
+}
+
+float sdOctahedron(vec3 p, float s)
+{
+    p = abs(p);
+    float m = p.x+p.y+p.z-s;
+    vec3 q;
+    if (3.0*p.x < m) q = p.xyz;
+    else if (3.0*p.y < m) q = p.yzx;
+    else if (3.0*p.z < m) q = p.zxy;
+    else return m*0.57735027;
+
+    float k = clamp(0.5*(q.z-q.y+s), 0.0, s);
+    return length(vec3(q.x, q.y-s+k, q.z-k));
+}
+
+float sdHexPrism(vec3 p, vec2 h)
+{
+    const vec3 k = vec3(-0.8660254, 0.5, 0.57735);
+    p = abs(p);
+    p.xy -= 2.0*min(dot(k.xy, p.xy), 0.0)*k.xy;
+    vec2 d = vec2(
+    length(p.xy-vec2(clamp(p.x, -k.z*h.x, k.z*h.x), h.x))*sign(p.y-h.x),
+    p.z-h.y);
+    return min(max(d.x, d.y), 0.0) + length(max(d, 0.0));
+}
+
+float sdPlane(vec3 p, vec3 n, float h)
+{
+    // n must be normalized
+    return dot(p, n) + h;
 }
 
 // Select distance function based on object type
@@ -113,6 +157,23 @@ float find_distance_to_object(Object curr, vec3 pos) {
         return sdInfiniteSpheres(obj_pos - pos, scale);
     }
 
+    if (curr.type == RoundBox) {
+        vec3 box_size = vec3(curr.sx, curr.sy, curr.sz);
+        return sdRoundBox(obj_pos - pos, box_size, 0.1);
+    }
+
+    if (curr.type == Octohedron) {
+        return sdOctahedron(obj_pos - pos, curr.sx);
+    }
+
+    if (curr.type == HexPrism) {
+        return sdHexPrism(obj_pos - pos, vec2(curr.sx, curr.sy));
+    }
+
+    if (curr.type == GridPlane) {
+        return sdPlane(pos, vec3(0, 1, 0), -curr.y);
+    }
+
     return MAX;
 }
 
@@ -136,10 +197,32 @@ vec4 intersection(vec4 a, vec4 b) {
     return vec4(a.xyz, max(a.w, b.w));
 }
 
+vec3 get_object_color(in Object obj, in vec3 pos) {
+    if (obj.type == GridPlane) {
+        const bool x = mod(int(pos.x), int(obj.sx * 2)) < obj.sx;
+        const bool z = mod(int(pos.z), int(obj.sz * 2)) < obj.sz;
+
+        if (x) {
+            return z ? vec3(1) : vec3(0.5);
+        }
+
+        return z ? vec3(0.5) : vec3(1.0);
+    }
+
+    return vec3(obj.r, obj.g, obj.b);
+}
+
 vec4 combined_query(in vec4 curr_data, in Object other, in vec3 pos) {
     const uint link_type = other.link_type;
     float other_dist = find_distance_to_object(other, pos);
-    vec4 other_data = vec4(other.r, other.g, other.b, other_dist);
+    vec4 other_data = vec4(get_object_color(other, pos), other_dist);
+
+    if (link_type == Default) {
+        if (curr_data.w < other_data.w) {
+            return curr_data;
+        }
+        return other_data;
+    }
 
     if (link_type == SoftUnion) {
         return smooth_min(curr_data, other_data, 10);
@@ -153,12 +236,7 @@ vec4 combined_query(in vec4 curr_data, in Object other, in vec3 pos) {
         return intersection(curr_data, other_data);
     }
 
-    // default
-    if (curr_data.w < other_data.w) {
-        return curr_data;
-    }
-
-    return other_data;
+    return curr_data;
 }
 
 
@@ -174,26 +252,39 @@ vec3 get_ray_direction(in vec2 uv) {
     return dir;
 }
 
-void query_scene(in vec3 pos, out vec3 color, out float min_dist) {
+vec4 query_object(in uint idx, in vec3 pos) {
+    Object curr = object_buffer.objects[idx];
+    const bool linked =  curr.type != Placeholder;
+
+    vec4 curr_data = vec4(get_object_color(curr, pos), find_distance_to_object(curr, pos));
+
+    if (linked) {
+        for (uint c = 1; c <= curr.num_children; c++) {
+            curr_data = combined_query(curr_data, object_buffer.objects[idx+c], pos);
+        }
+    }
+
+    return curr_data;
+}
+
+void query_scene(in vec3 pos, out vec3 color, out float min_dist, out uint hit_idx) {
     color = vec3(0, 0, 0);
     min_dist = MAX;
+    hit_idx = 0;
 
     for (uint i = 0; i < num_objects; i++) {
         Object curr = object_buffer.objects[i];
-        vec4 curr_data = vec4(curr.r, curr.g, curr.b, find_distance_to_object(curr, pos));
-
-        const bool linked =  (curr.type != Placeholder && curr.num_children > 0);
-
-        if (linked) {
-            for (uint c = 1; c <= curr.num_children; c++) {
-                curr_data = combined_query(curr_data, object_buffer.objects[i+c], pos);
-            }
-            i += curr.num_children;
-        }
+        const bool linked =  curr.type != Placeholder;
+        vec4 curr_data = query_object(i, pos);
 
         if (curr_data.w < min_dist) {
             min_dist = curr_data.w;
             color = curr_data.rgb;
+            hit_idx = i;
+        }
+
+        if (linked) {
+            i += curr.num_children;
         }
     }
 }
@@ -201,14 +292,19 @@ void query_scene(in vec3 pos, out vec3 color, out float min_dist) {
 float query_scene_dist(in vec3 pos) {
     vec3 surface_color;
     float dist;
-    query_scene(pos, surface_color, dist);
+    uint hit_idx;
+    query_scene(pos, surface_color, dist, hit_idx);
     return dist;
 }
 
-vec3 estimate_surface_normal(in vec3 p) {
-    float x = query_scene_dist(vec3(p.x+eps, p.y, p.z)) - query_scene_dist(vec3(p.x-eps, p.y, p.z));
-    float y = query_scene_dist(vec3(p.x, p.y+eps, p.z)) - query_scene_dist(vec3(p.x, p.y-eps, p.z));
-    float z = query_scene_dist(vec3(p.x, p.y, p.z+eps)) - query_scene_dist(vec3(p.x, p.y, p.z-eps));
+float query_obj_dist(in vec3 pos, in uint idx) {
+    return query_object(idx, pos).w;
+}
+
+vec3 estimate_surface_normal(in vec3 p, uint obj_idx) {
+    float x = query_obj_dist(vec3(p.x+eps, p.y, p.z), obj_idx) - query_obj_dist(vec3(p.x-eps, p.y, p.z), obj_idx);
+    float y = query_obj_dist(vec3(p.x, p.y+eps, p.z), obj_idx) - query_obj_dist(vec3(p.x, p.y-eps, p.z), obj_idx);
+    float z = query_obj_dist(vec3(p.x, p.y, p.z+eps), obj_idx) - query_obj_dist(vec3(p.x, p.y, p.z-eps), obj_idx);
 
     return normalize(vec3(x, y, z));
 }
@@ -226,7 +322,8 @@ float compute_shadow(vec3 origin, vec3 direction, float dst_to_light) {
     while (total_dist < dist_limit && num_steps < shadow_max_steps) {
         vec3 surface_color;
         float dist;
-        query_scene(origin, surface_color, dist);
+        uint hit_idx;
+        query_scene(origin, surface_color, dist, hit_idx);
 
         if (dist < shadow_eps) {
             return shadow_intensity;
@@ -262,27 +359,40 @@ void main() {
     while (total_dist < max_dist && num_steps < max_steps) {
         vec3 surface_color;
         float dist;
-        query_scene(origin, surface_color, dist);
+        uint hit_idx;
+        query_scene(origin, surface_color, dist, hit_idx);
 
         // Hit object
         if (dist < eps) {
             hit_obj = true;
+            Object curr = object_buffer.objects[hit_idx];
 
             vec3 hit_point = origin + dist * direction;
-            vec3 surface_normal = estimate_surface_normal(hit_point - eps * direction);
+            vec3 surface_normal = estimate_surface_normal(hit_point - eps * direction, hit_idx);
 
             // Compute shadows
-            vec3 shadow_offset_pos = hit_point + surface_normal * eps*3;
-            vec3 dir_to_light = light_pos - shadow_offset_pos;
-            float dist_to_light = length(dir_to_light);
-            dir_to_light = normalize(dir_to_light);
-            float shadow_value = compute_shadow(shadow_offset_pos, dir_to_light, dist_to_light);
+            const vec3 shadow_offset_pos = hit_point + surface_normal * eps*3;
+            vec3 light_dir = light_pos - shadow_offset_pos;
+            const float dist_to_light = length(light_dir);
+            light_dir = normalize(light_dir);
+            const float shadow_value = compute_shadow(shadow_offset_pos, light_dir, dist_to_light);
 
-            // Compute light
-            dir_to_light = normalize(light_pos - hit_point);
-            float n_dot_l = clamp(dot(surface_normal, dir_to_light), 0.0, 1.0) * (shadow_value);
-            vec3 half_lambert = pow(n_dot_l * 0.5 + 0.5, 2.0) * surface_color;
-            vec3 lit_color = half_lambert * 1.5 * light_color;
+            // Compute light (Blinn-Phong)
+            light_dir = normalize(light_pos - hit_point);
+            const vec3 view_dir = normalize(origin - hit_point);
+            const vec3 halfway_dir = normalize(view_dir + light_dir);
+
+            const float shininess = curr.specular;
+            const float diffuse = curr.diffuse;
+
+            const float specular = pow(max(dot(halfway_dir, surface_normal), 0.0), shininess);
+            const float lambertian = diffuse * clamp(dot(surface_normal, light_dir), 0.0, 1.0);
+
+            vec3 lit_color = (lambertian + specular) * surface_color * light_color * shadow_value;
+
+            // Gamma correction todo make it configurable
+            const float gamma = 2.2;
+            lit_color = pow(lit_color.rgb, vec3(1.0/gamma));
 
             out_pixel = vec4(lit_color, 1.0);
             break;
