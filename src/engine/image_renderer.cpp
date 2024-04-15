@@ -1,6 +1,7 @@
 #include <engine/image_renderer.h>
 
 #include <cstring>
+#include <array>
 
 const char *vertex_shader_code = "#version 460\n"
                                  "layout (location = 0) in vec3 aPos;\n"

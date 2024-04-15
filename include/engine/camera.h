@@ -26,7 +26,7 @@ struct Camera {
 
     void rotate(float x_offset, float y_offset);
 
-    [[nodiscard]] constexpr glm::mat4x4 view_matrix() const {
+    [[nodiscard]] inline glm::mat4x4 view_matrix() const {
         return glm::lookAt(pos, pos + front, up);
     }
 

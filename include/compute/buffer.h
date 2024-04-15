@@ -39,7 +39,7 @@ namespace compute {
 
         [[nodiscard]] constexpr uint8_t const *data() const { return buf.get_data(); }
 
-        constexpr void zero_fill() { buf.zero_fill(); }
+        inline void zero_fill() { buf.zero_fill(); }
 
         void bind() const;
 

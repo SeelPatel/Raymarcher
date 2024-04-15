@@ -27,3 +27,4 @@ target_link_libraries(Raymarcher PUBLIC core)
 
 # Copy assets to binary directory
 file(COPY raymarching_shader.glsl DESTINATION ${CMAKE_BINARY_DIR})
+file(COPY imgui.ini DESTINATION ${CMAKE_BINARY_DIR})

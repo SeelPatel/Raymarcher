@@ -78,7 +78,7 @@ int main() {
 
     Err err;
     if ((err = renderer.init()) || (err = object_buffer.init()) ||
-        (err = raymarcher.init(std::filesystem::path("..\\raymarching_shader.glsl")))) {
+        (err = raymarcher.init(std::filesystem::path("raymarching_shader.glsl")))) {
         err.print();
         return -1;
     }
